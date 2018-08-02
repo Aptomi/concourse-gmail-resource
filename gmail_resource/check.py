@@ -41,8 +41,7 @@ def check(instream):
     messages = g.inbox().mail(unread=True, prefetch=True)
     messages = sorted(messages, key=lambda m: m.sent_at)
 
-    uids_all = []
-    uids_after_start = []
+    messages_after_start = []
     found = False
     for m in messages:
         # only consider emails after the given startUid
@@ -50,26 +49,34 @@ def check(instream):
             found = True
 
         common.msg("[{0}] {1} [check = {2}]".format(m.uid, m.subject, found))
-
-        # collect the entire list too
-        uids_all.append(m.uid)
         if found:
-            uids_after_start.append(m.uid)
+            messages_after_start.append(m)
 
-    # if we haven't found starting uid, then return the complete list
-    if not found:
-        uids_after_start = uids_all
+    # if it's the very first call, let's return the very first email
+    if len(startUid) <= 0:
+        messages_after_start = [messages[0]] if len(messages) > 0 else []
+    else:
+        # if nothing has been found, let's return the complete list
+        if not found:
+            messages_after_start = messages
+
+    # return the resulting list
+    result = []
+    for m in messages_after_start:
+        try:
+            # read the corresponding email message (so we don't receive it during the next check)
+            # but keep it in the mailbox and don't move anywhere, so it doesn't change uid
+            m.read()
+            result.append({'uid': m.uid})
+        except:
+            common.msg("[{0}] {1} [unable to mark message as read".format(m.uid, m.subject))
+            break
 
     # log out and swallow the error
     try:
         g.logout()
     except:
         pass
-
-    # return the resulting list
-    result = []
-    for uid in uids_after_start:
-        result.append({'uid': uid})
 
     return result
 

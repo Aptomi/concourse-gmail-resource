@@ -19,7 +19,7 @@ import sys
 import common
 import os
 import errno
-from gmail import Gmail
+from gmail import Gmail, Message
 
 def toJSON(msg):
     return {
@@ -39,7 +39,7 @@ def in_(destdir, instream):
     username = input['source']['username']
     password = input['source']['password']
     version = input.get('version')
-    requiredUid = version.get('uid', "") if version is not None else ""
+    uid = version.get('uid', "") if version is not None else ""
 
     common.msg("logging into gmail as '{0}'".format(username))
     g = Gmail()
@@ -51,33 +51,19 @@ def in_(destdir, instream):
         common.msg("unable to log in")
         exit(1)
 
-    # see what emails have appeared
-    common.msg("searching for email with uid '{0}'".format(requiredUid))
-    messages = g.inbox().mail(unread=True, prefetch=True)
-    messages = sorted(messages, key=lambda m: m.sent_at)
-
-    msg = None
-    for m in messages:
-        common.msg("[{0}] {1}".format(m.uid, m.subject))
-
-        # only consider emails with the given uid
-        if requiredUid == m.uid:
-            msg = m
-            break
+    # fetch this particular email
+    common.msg("fetching email with uid '{0}'".format(uid))
+    msg = g.fetch_multiple_messages({uid: Message(g.inbox(), uid)})[uid]
 
     # if we haven't found the required email message, then exit
-    if msg is None:
-        common.msg("unable to find email with uid '{0}'".format(requiredUid))
+    if msg is None or msg.message is None:
+        common.msg("unable to find email with uid '{0}'".format(uid))
         exit(1)
 
     # put it on a file system
     common.msg("writing email '{0}' to {1}".format(msg.subject, destdir))
     with safe_open(os.path.join(destdir, "email"), 'w') as f:
         f.write(json.dumps(toJSON(msg)))
-
-    # read and archive the corresponding email message
-    msg.read()
-    msg.archive()
 
     # log out and swallow the error
     try:
