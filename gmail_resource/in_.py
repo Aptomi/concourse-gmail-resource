@@ -25,7 +25,7 @@ def toJSON(msg):
     return {
         "uid": msg.uid,
         "subject": msg.subject,
-        "body": msg.body,
+        "body": msg.html,
         "to": msg.to,
         "fr": msg.fr,
         "cc": msg.cc,
